@@ -1,12 +1,14 @@
 %% Initialization
 clear
 clc
+x1= 0;
+x2 = 90;
 
 % Define Important Constants
 const = struct;
 const.g = 9.81; % gravity [m/s^2]
 const.rho = 1.225; % density of air [kg/m^3]
-const.vw = 3; % Wind Velocity [m/s]
+const.vw = 2; % Wind Velocity [m/s]
 const.dt = .0005; % Time step [s]
 dt = const.dt;
 const.mp_i = 0.0393; % Initial mass of the propellant, [kg]
@@ -54,7 +56,7 @@ z(1) = 1;
 t(1) = 0;
 theta = zeros(1, length(F)); % Flight Path Angle [degrees]
 psi = zeros(1, length(F)); % Pitch Angle [degrees]
-theta(1) = 40.00; % launch angle [deg]
+theta(1) = 80.00; % launch angle [deg]
 
 % Define the forces
 %F = 10*ones(1,300); % Thrust [N]
@@ -66,15 +68,16 @@ m = zeros(1, length(F)); % mass, [kg]
 v_rel = zeros(1, length(F));
 
 % Rod Characteristics
-L_rod = 1.8288; [m]
-CD_pc = 1.3;        % FIX THIS
+L_rod = 1.8288; % [m]
+CD_pc = .3;        % FIX THIS
 
 %% Calculations
 i = 1;
 while (z(i) > 0)
     t(i+1) = t(i) + const.dt;
     if (sqrt(z(i)^2+x(i)^2)) < L_rod
-        disp('on rod.');
+        %disp('on rod.');
+        rod = 1;
         v_rel(i) = sqrt((v(i)*sind(theta(i)))^2+(const.vw + v(i)*cosd(theta(i)))^2);
         psi(i) = acosd((v(i)*sind(theta(i)))/v_rel(i));
 
@@ -99,7 +102,7 @@ while (z(i) > 0)
         % fprintf('The velocity is: %.2f\n', v(i));
 
         % [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB,CD_b,CD0_F, v(i),theta(i),psi(i),z(i), m(i));
-        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB, v(i),theta(i),psi(i),z(i), m(i));
+        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB, v(i),theta(i),psi(i),z(i), m(i), rod);
 
         % fprintf('The H is: %.2f\n', H(i));
         % fprintf('The G is: %.2f\n', G(i));
@@ -108,10 +111,11 @@ while (z(i) > 0)
 
         v(i+1) = v(i) + dt/2 * (G(i) + G_star(i));
         theta(i+1) = theta(i);
-        x(i+1) = x(i) + dt/2 * (v(i)*cosd(theta(i)) + v(i+1)*cosd(theta(i+1)));
+        x(i+1) = x(i) + dt/2 * ((v(i)*cosd(theta(i))) + (v(i+1)*cosd(theta(i+1))-2*const.vw));
         z(i+1) = z(i) + dt/2 * (v(i)*sind(theta(i)) + v(i+1) * sind(theta(i+1)));
     elseif(t(i) > (t_b(end) + 6))
-        disp('parachute deployed.');
+        %disp('parachute deployed.');
+        rod = 0;
         v_rel(i) = sqrt((v(i)*sind(theta(i)))^2+(const.vw + v(i)*cosd(theta(i)))^2);
         psi(i) = acosd((v(i)*sind(theta(i)))/v_rel(i));
 
@@ -135,7 +139,7 @@ while (z(i) > 0)
         % fprintf('The Thrust is: %.2f\n', F(i));
         % fprintf('The velocity is: %.2f\n', v(i));
 
-        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB, v(i),theta(i),psi(i),z(i), m(i));
+        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD_pc, v(i),theta(i),psi(i),z(i), m(i), rod);
 
         % fprintf('The H is: %.2f\n', H(i));
         % fprintf('The G is: %.2f\n', G(i));
@@ -144,9 +148,10 @@ while (z(i) > 0)
 
         v(i+1) = v(i) + dt/2 * (G(i) + G_star(i));
         theta(i+1) = theta(i) + dt/2 * (H(i) + H_star(i));
-        x(i+1) = x(i) + dt/2 * (v(i)*cosd(theta(i)) + v(i+1)*cosd(theta(i+1)));
+        x(i+1) = x(i) + dt/2 * (-2*const.vw + v(i)*cosd(theta(i)) + v(i+1)*cosd(theta(i+1)));
         z(i+1) = z(i) + dt/2 * (v(i)*sind(theta(i)) + v(i+1) * sind(theta(i+1)));
     else
+        rod = 0;
         v_rel(i) = sqrt((v(i)*sind(theta(i)))^2+(const.vw + v(i)*cosd(theta(i)))^2);
         psi(i) = acosd((v(i)*sind(theta(i)))/v_rel(i));
 
@@ -155,7 +160,7 @@ while (z(i) > 0)
         D(i) = drag_function(const, v_rel(i),CD0_FB);
         % L(i) = lift_function(const, v_rel(i), CD_b, CD0_F);
 
-        disp('else');
+        %disp('else');
 
         if i > 2711
             F(i) = 0;
@@ -173,7 +178,7 @@ while (z(i) > 0)
         % fprintf('The velocity is: %.2f\n', v(i));
 
         % [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB,CD_b,CD0_F, v(i),theta(i),psi(i),z(i), m(i));
-        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB, v(i),theta(i),psi(i),z(i), m(i));
+        [H(i),G(i), H_star(i), G_star(i)] = h_g_function(const,F(i),L(i),D(i),CD0_FB, v(i),theta(i),psi(i),z(i), m(i), rod);
 
         % fprintf('The H is: %.2f\n', H(i));
         % fprintf('The G is: %.2f\n', G(i));
@@ -182,29 +187,29 @@ while (z(i) > 0)
 
         v(i+1) = v(i) + dt/2 * (G(i) + G_star(i));
         theta(i+1) = theta(i) + dt/2 * (H(i) + H_star(i));
-        x(i+1) = x(i) + dt/2 * (v(i)*cosd(theta(i)) + v(i+1)*cosd(theta(i+1)));
+        x(i+1) = x(i) + dt/2 * (2*const.vw+v(i)*cosd(theta(i)) + v(i+1)*cosd(theta(i+1)));
         z(i+1) = z(i) + dt/2 * (v(i)*sind(theta(i)) + v(i+1) * sind(theta(i+1)));
     end
 
     m_prev = m(i);
-    i = i + 1
+    i = i + 1;
 end
+
 %%
 figure(1)
 plot(x,z)
-axis("equal")
+xlim([0 75])
 figure(2)
 plot(t,z)
 figure(3)
 plot(t,v)
-[CD0_FB, ~, ~] = AAE439_Project_dragcoeff(v_rel(10730), const)
 
 %% Functions
 function[L] = lift_function(const, v)
     rho = const.rho;
     A = const.S_F;
 
-    c_l = 0.3; % cl(rho,v)
+    c_l = .3; % cl(rho,v)
 	L = (1/2)*rho*A*v^2*c_l;
 end
 
@@ -215,7 +220,7 @@ function[D] = drag_function(const, v, cd)
 	D = (1/2)*rho*A*v^2*cd;
 end
 
-function[H,G,H_star, G_star] = h_g_function(const,F,L,D,cd, v,theta,psi,z, m)
+function[H,G,H_star, G_star] = h_g_function(const,F,L,D,cd, v,theta,psi,z, m, rod)
 % function[H,G,H_star, G_star] = h_g_function(const,F,L,D,cd,CD_b, CD0_F, v,theta,psi,z, m)
 	g  = const.g;
     dt = const.dt;
@@ -226,8 +231,14 @@ function[H,G,H_star, G_star] = h_g_function(const,F,L,D,cd, v,theta,psi,z, m)
 
     % Approximations
 	v_star = v + G * dt;
-    theta_star = theta + H*dt;
-    psi_star = atand((v_star*sind(theta_star))/(vw+v_star*cosd(theta_star)));
+    if rod
+        theta_star = theta;
+        psi_star = psi;
+    else
+        theta_star = theta + H*dt;
+        %psi_star = psi + v*sind(theta)*dt;
+        psi_star = atand((v_star*sind(theta_star))/(vw+v_star*cosd(theta_star)));
+    end
     z_star = z + v*sind(theta)*dt;
     % L_star = lift_function(const, v_star,CD_b, CD0_F);
     L_star = lift_function(const, v_star);
